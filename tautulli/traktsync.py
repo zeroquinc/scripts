@@ -8,6 +8,21 @@ from datetime import datetime, timezone
 import argparse
 import os
 
+"""
+This script is used to sync watched content from Tautulli to Trakt. It supports double plays.
+
+In Tautulli, go to Settings > Notification Agents > Add a new notification agent > Script -> Select traktsync.py
+Triggers -> Check Watched
+Conditions -> "Username" is "Your Tautulli username" (optional if you only want to sync your own plays)
+Arguments -> Watched -> Script Arguments -> --contentType {media_type} <movie>--imdbId {imdb_id}</movie><episode>--tmdbId {themoviedb_id} --season_num {season_num} --episode_num {episode_num}</episode>
+
+Run the script once and it will create a config.ini file.
+Fill in the missing values in the config.ini file and run the script again, you will need to authorize the script to access your Trakt account.
+
+Optionally test the script at "Test Notifications" and fill these as script arguments: --contentType movie --imdbId tt0241527
+It should mark "Harry Potter and the Sorcerer's Stone" as watched on Trakt.
+"""
+
 # Constants
 TOKEN_FILE = "trakt_token.json"
 TRAKT_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
