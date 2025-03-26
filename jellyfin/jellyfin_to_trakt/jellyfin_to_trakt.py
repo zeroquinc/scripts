@@ -299,25 +299,15 @@ def send_discord_webhook(config, items):
     for item in items:
         if item['type'] == 'movie':
             embed = {
-                "title": f"{item['name']} ({item['year']})",
-                "description": "\nSuccessfully marked as watched on Trakt ✔️",
-                "footer": {"text": f"Watched at {item['watched_at']}"},
+                "description": f"Successfully marked **{item['name']} ({item['year']})** as watched on Trakt.\n[Link](https://trakt.tv/search/tmdb/{item['id']}?id_type=movie)\n",
+                "footer": {"text": f"{item['watched_at']}"},
                 "color": 0x00ff00,
-                "fields": [
-                    {"name": "Type", "value": "Movie", "inline": True},
-                    {"name": "TMDb ID", "value": str(item['id']), "inline": True}
-                ]
             }
         else:  # episode
             embed = {
-                "title": f"{item['series']}",
-                "description": f"S{item['season']:02d}E{item['episode']:02d} - {item['episode_name']}\n\nSuccessfully marked as watched on Trakt ✔️",
+                "description": f"Successfully marked **{item['series']} - S{item['season']:02d}E{item['episode']:02d}** as watched on Trakt.\n\n[Link](https://trakt.tv/search/tvdb/{item['id']}?id_type=episode)\n",
                 "color": 0x7289da,
-                "footer": {"text": f"Watched at {item['watched_at']}"},
-                "fields": [
-                    {"name": "Type", "value": "Episode", "inline": True},
-                    {"name": "Link", "value": f"[View on Trakt](https://trakt.tv/search/tvdb/{item['id']})", "inline": False}
-                ]
+                "footer": {"text": f"{item['watched_at']}"},
             }
         embeds.append(embed)
     
