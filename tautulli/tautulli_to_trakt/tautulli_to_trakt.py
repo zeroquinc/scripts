@@ -11,7 +11,7 @@ import os
 """
 This script is used to sync watched content from Tautulli to Trakt. It supports double plays.
 
-In Tautulli, go to Settings > Notification Agents > Add a new notification agent > Script -> Select traktsync.py
+In Tautulli, go to Settings > Notification Agents > Add a new notification agent > Script -> Select tautulli_to_trakt.py
 Triggers -> Check Watched
 Conditions -> "Username" is "Your Tautulli username" (optional if you only want to sync your own plays)
 Arguments -> Watched -> Script Arguments -> --contentType {media_type} <movie>--imdbId {imdb_id}</movie><episode>--tmdbId {themoviedb_id} --season_num {season_num} --episode_num {episode_num}</episode>

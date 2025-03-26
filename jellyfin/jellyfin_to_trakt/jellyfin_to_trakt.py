@@ -9,6 +9,13 @@ import webbrowser
 import logging
 from logging.handlers import RotatingFileHandler
 
+"""
+This script syncs recently played items from Jellyfin to Trakt.
+It only supports syncing movies and episodes played in the LAST 1 hour.
+Run the script once manually and it will create a config.ini file.
+Then run it with a cronjob every hour to sync new plays.
+"""
+
 # --- Config Setup ---
 CONFIG_FILE = Path(__file__).parent / "config.ini"
 TOKEN_URL = "https://trakt.tv/oauth/authorize"
