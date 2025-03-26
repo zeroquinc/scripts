@@ -1,4 +1,5 @@
 import requests
+import json
 import os
 from datetime import datetime, timedelta
 import pytz
@@ -63,6 +64,11 @@ def get_config():
             "level": "INFO",
             "file": "trakt_sync.log"
         }
+        # Add optional Discord section
+        if input("Add Discord webhook? (y/n): ").lower() == 'y':
+            config["DISCORD"] = {
+                "webhook_url": input("Discord Webhook URL: ").strip()
+            }
         _authenticate_trakt(config)
         with open(config_file, "w") as f:
             config.write(f)
@@ -249,15 +255,87 @@ def sync_to_trakt(item_type, item_data, external_id, played_at, config):
             name = item_data.get('Name', 'Unknown Movie')
             year = item_data.get('ProductionYear', '')
             logging.info(f"[SUCCESS] Marked Movie as watched on Trakt: {name} ({year}) - Watched at {human_date}")
+            return {
+                'type': 'movie',
+                'name': name,
+                'year': year,
+                'id': external_id,
+                'watched_at': human_date
+            }
         else:
             series = item_data.get('SeriesName', 'Unknown Series')
             episode = item_data.get('Name', 'Unknown Episode')
             season = item_data.get('ParentIndexNumber', 0)
             episode_num = item_data.get('IndexNumber', 0)
             logging.info(f"[SUCCESS] Marked Episode as watched on Trakt: {series} - {episode} (S{season:02d}E{episode_num:02d}) - Watched at {human_date}")
+            return {
+                'type': 'episode',
+                'series': series,
+                'episode_name': episode,
+                'season': season,
+                'episode': episode_num,
+                'id': external_id,
+                'watched_at': human_date
+            }
     else:
         logging.error(f"[ERROR] Failed to sync {item_type}. Status: {response.status_code}")
         logging.debug(f"[DEBUG] Error details: {response.text}")
+        return None
+
+def send_discord_webhook(config, items):
+    """Send a Discord webhook notification for synced items."""
+    if not config.has_option('DISCORD', 'webhook_url'):
+        return
+    
+    webhook_url = config['DISCORD']['webhook_url'].strip()
+    if not webhook_url:
+        return
+    
+    if not items:
+        return
+    
+    # Prepare the embed
+    embeds = []
+    for item in items:
+        if item['type'] == 'movie':
+            embed = {
+                "title": f"{item['name']} ({item['year']})",
+                "description": "\nSuccessfully marked as watched on Trakt ✔️",
+                "footer": {"text": f"Watched at {item['watched_at']}"},
+                "color": 0x00ff00,
+                "fields": [
+                    {"name": "Type", "value": "Movie", "inline": True},
+                    {"name": "TMDb ID", "value": str(item['id']), "inline": True}
+                ]
+            }
+        else:  # episode
+            embed = {
+                "title": f"{item['series']}",
+                "description": f"S{item['season']:02d}E{item['episode']:02d} - {item['episode_name']}\n\nSuccessfully marked as watched on Trakt ✔️",
+                "color": 0x7289da,
+                "footer": {"text": f"Watched at {item['watched_at']}"},
+                "fields": [
+                    {"name": "Type", "value": "Episode", "inline": True},
+                    {"name": "Link", "value": f"[View on Trakt](https://trakt.tv/search/tvdb/{item['id']})", "inline": False}
+                ]
+            }
+        embeds.append(embed)
+    
+    payload = {
+        "embeds": embeds
+    }
+    
+    try:
+        response = requests.post(
+            webhook_url,
+            data=json.dumps(payload),
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        response.raise_for_status()
+        logging.info("Discord webhook notification sent successfully")
+    except Exception as e:
+        logging.error(f"Failed to send Discord webhook: {str(e)}")
 
 if __name__ == "__main__":
     config = get_config()
@@ -268,12 +346,19 @@ if __name__ == "__main__":
     
     logging.info(f"Found {len(recent_movies)} movies and {len(recent_episodes)} episodes played in the last hour.")
     
+    synced_items = []
+    
     for movie in recent_movies:
         if tmdb_id := movie.get("ProviderIds", {}).get("Tmdb"):
-            sync_to_trakt("movie", movie, tmdb_id, movie["UserData"]["LastPlayedDate"], config)
+            if result := sync_to_trakt("movie", movie, tmdb_id, movie["UserData"]["LastPlayedDate"], config):
+                synced_items.append(result)
     
     for episode in recent_episodes:
         if tvdb_id := episode.get("ProviderIds", {}).get("Tvdb"):
-            sync_to_trakt("episode", episode, tvdb_id, episode["UserData"]["LastPlayedDate"], config)
+            if result := sync_to_trakt("episode", episode, tvdb_id, episode["UserData"]["LastPlayedDate"], config):
+                synced_items.append(result)
+    
+    if synced_items:
+        send_discord_webhook(config, synced_items)
     
     logging.info("Sync complete!")
