@@ -34,7 +34,7 @@ def send_discord_webhook(embed, webhook_url):
 def create_base_embed(args, notification_type):
     """Create base embed structure common to all media types."""
     embed = {
-        "title": get_embed_title(args, notification_type).capitalize(),
+        "title": get_embed_title(args, notification_type),
         "url": args.plex_url,
         "author": {
             "name": "Plex: Media Playing",
@@ -48,7 +48,7 @@ def create_base_embed(args, notification_type):
             },
             {
                 "name": "Method",
-                "value": args.video_decision.capitalize(),
+                "value": args.video_decision.title(),
                 "inline": True
             },
             {
