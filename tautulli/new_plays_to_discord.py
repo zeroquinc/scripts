@@ -2,7 +2,7 @@
 """
 
 Tautulli Discord Webhook Script
-Sends notifications to Discord when new content is added to Plex.
+Sends notifications to Discord when media is played on Plex.
 
 In Tautulli, add a new notification agent Script.
 Triggers -> Playback Start
