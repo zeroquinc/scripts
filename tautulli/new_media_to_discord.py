@@ -140,7 +140,7 @@ def main():
         return
     
     # Create and send the embed
-    print(f"Sending notification for {media_type}...")
+    print(f"Sending New Media notification for {media_type}...")
     print(f"Title: {args.title}")
     
     embed = create_base_embed(args, media_type)
