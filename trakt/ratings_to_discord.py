@@ -12,6 +12,23 @@ def log(message):
     """Simple logging function with timestamps"""
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"[{timestamp}] {message}")
+    
+def get_trakt_user_profile():
+    headers = {
+        "Content-Type": "application/json",
+        "trakt-api-version": "2",
+        "trakt-api-key": TRAKT_API_KEY
+    }
+    
+    url = f"https://api.trakt.tv/users/{TRAKT_USERNAME}?extended=full"
+    
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        log(f"Error fetching user profile: {e}")
+        return None
 
 def get_tmdb_poster_url(tmdb_id, media_type):
     if not tmdb_id or not media_type:
@@ -139,9 +156,16 @@ def create_discord_embed(ratings):
     if not ratings:
         return None
     
+    # Get user profile once
+    user_profile = get_trakt_user_profile()
+    avatar_url = None
+    if user_profile:
+        avatar_url = user_profile.get('images', {}).get('avatar', {}).get('full')
+    
     embeds = []
     
     for item in ratings:
+        rated_at = item.get('rated_at', '')
         rating = item.get('rating', 0)
         item_type = item.get('type', '')
         item_id = None
@@ -155,17 +179,12 @@ def create_discord_embed(ratings):
         fields = []  # We'll use fields instead of description
         trakt_url = None  # This will store the URL to the item on Trakt
 
-        # Create fields for user and rating
-        fields.append({
-            "name": "User",
-            "value": TRAKT_USERNAME,
-            "inline": True,
-        })
-        fields.append({
-            "name": "Rating",
-            "value": f"{rating}/10 ⭐",
-            "inline": True,
-        })
+        # # Create field for rating
+        # fields.append({
+        #     "name": "Rating",
+        #     "value": f"{rating}/10 ⭐",
+        #     "inline": True,
+        # })
 
         if item_type == "movie":
             item_data = item.get('movie', {})
@@ -238,6 +257,7 @@ def create_discord_embed(ratings):
 
         embed = {
             "title": title[:256],
+            "description": f"Rated {rating}/10 ⭐",
             "url": trakt_url,
             "fields": fields,
             "color": color,
@@ -245,6 +265,11 @@ def create_discord_embed(ratings):
                 "name": "Trakt: Item Rated",
                 "icon_url": "https://i.imgur.com/7gkofW8.png"
             },
+            "timestamp": rated_at,
+            "footer": {
+                "text": f"{TRAKT_USERNAME}",
+                "icon_url": avatar_url if avatar_url else "https://i.imgur.com/7gkofW8.png"
+            }
         }
         
         # Fetch poster from TMDb if available
