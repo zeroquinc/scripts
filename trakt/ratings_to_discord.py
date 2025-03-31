@@ -1,7 +1,5 @@
 import requests
-import json
-from datetime import datetime, timedelta
-import time
+from datetime import datetime, timedelta, timezone
 
 # Configuration (EDIT THIS)
 TRAKT_API_KEY = "" # Trakt Client ID
@@ -9,6 +7,11 @@ TMDB_API_KEY = ""  # TMDB API Key for posters
 TRAKT_USERNAME = "" # Trakt username (not user ID) capital sensitive
 DISCORD_WEBHOOK_URL = "" # Discord Webhook URL
 HOURS = 1  # Number of hours to check for new ratings
+
+def log(message):
+    """Simple logging function with timestamps"""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"[{timestamp}] {message}")
 
 def get_tmdb_poster_url(tmdb_id, media_type):
     if not tmdb_id or not media_type:
@@ -46,11 +49,11 @@ def get_tmdb_poster_url(tmdb_id, media_type):
         
     except requests.exceptions.HTTPError as e:
         if response.status_code == 404:
-            print(f"TMDb ID {tmdb_id} not found for {media_type}")
+            log(f"TMDb ID {tmdb_id} not found for {media_type}")
         else:
-            print(f"Error fetching TMDb poster: {e}")
+            log(f"Error fetching TMDb poster: {e}")
     except requests.exceptions.RequestException as e:
-        print(f"Request error fetching TMDb poster: {e}")
+        log(f"Request error fetching TMDb poster: {e}")
     
     return None
 
@@ -75,7 +78,7 @@ def get_comments_for_item(item_type, item_id, show_id=None, season_num=None, epi
         comments = response.json()
 
         # Filter for comments in the last hour (same as ratings)
-        one_hour_ago = datetime.utcnow() - timedelta(hours=HOURS)
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=HOURS)
         recent_comments = []
         
         for c in comments:
@@ -88,17 +91,17 @@ def get_comments_for_item(item_type, item_id, show_id=None, season_num=None, epi
                 if created_date > one_hour_ago and c.get('user', {}).get('username') == TRAKT_USERNAME:
                     recent_comments.append(c)
             except (ValueError, TypeError) as e:
-                print(f"Error parsing comment date: {e}")
+                log(f"Error parsing comment date: {e}")
                 continue
         
         return recent_comments
     except requests.exceptions.HTTPError as e:
         if response.status_code == 404:
             return []  # No comments found
-        print(f"Error fetching comments: {e}")
+        log(f"Error fetching comments: {e}")
         return []
     except requests.exceptions.RequestException as e:
-        print(f"Request error fetching comments: {e}")
+        log(f"Request error fetching comments: {e}")
         return []
 
 def get_all_ratings():
@@ -115,18 +118,18 @@ def get_all_ratings():
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching ratings: {e}")
+        log(f"Error fetching ratings: {e}")
         return None
 
 def filter_recent_ratings(ratings):
     if not ratings:
         return []
     
-    one_hour_ago = datetime.utcnow() - timedelta(hours=HOURS)
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=HOURS)
     recent_ratings = []
     
     for item in ratings:
-        rated_at = datetime.strptime(item.get('rated_at'), "%Y-%m-%dT%H:%M:%S.%fZ")
+        rated_at = datetime.strptime(item.get('rated_at'), "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
         if rated_at > one_hour_ago:
             recent_ratings.append(item)
     
@@ -139,7 +142,6 @@ def create_discord_embed(ratings):
     embeds = []
     
     for item in ratings:
-        rated_at = item.get('rated_at', '')
         rating = item.get('rating', 0)
         item_type = item.get('type', '')
         item_id = None
@@ -161,7 +163,7 @@ def create_discord_embed(ratings):
         })
         fields.append({
             "name": "Rating",
-            "value": f"{rating}/10",
+            "value": f"{rating}/10 ⭐",
             "inline": True,
         })
 
@@ -226,17 +228,23 @@ def create_discord_embed(ratings):
                     "value": "\n".join(comment_texts),
                     "inline": False
                 })
-        
+
+        if rating >= 7:
+            color = 0x00FF00
+        elif rating >= 5:
+            color = 0xFFA500
+        else:
+            color = 0xFF0000
+
         embed = {
             "title": title[:256],
-            "url": trakt_url,  # This makes the title clickable
+            "url": trakt_url,
             "fields": fields,
-            "color": 0x00FF00 if rating >= 7 else 0xFFA500 if rating >= 5 else 0xFF0000,
+            "color": color,
             "author": {
-                "name": "Trakt: New Item Rated",
+                "name": "Trakt: Item Rated",
                 "icon_url": "https://i.imgur.com/7gkofW8.png"
             },
-            "timestamp": rated_at,
         }
         
         # Fetch poster from TMDb if available
@@ -251,7 +259,7 @@ def create_discord_embed(ratings):
 
 def send_to_discord(embeds):
     if not embeds:
-        print("No new ratings to send.")
+        log("No new ratings to send.")
         return
     
     payload = {
@@ -261,19 +269,19 @@ def send_to_discord(embeds):
     try:
         response = requests.post(DISCORD_WEBHOOK_URL, json=payload)
         response.raise_for_status()
-        print(f"Successfully sent {len(embeds)} rating{'s' if len(embeds) != 1 else ''} to Discord")
+        log(f"Successfully sent {len(embeds)} rating{'s' if len(embeds) != 1 else ''} to Discord")
     except requests.exceptions.RequestException as e:
-        print(f"Error sending to Discord: {e}")
+        log(f"Error sending to Discord: {e}")
 
 def main():
-    print("Fetching all ratings...")
+    log("Fetching all ratings...")
     ratings = get_all_ratings()
     
     if ratings:
-        print(f"Found {len(ratings)} total ratings")
+        log(f"Found {len(ratings)} total ratings")
         recent_ratings = filter_recent_ratings(ratings)
         count = len(recent_ratings)
-        print(f"Found {count} new rating{'s' if count != 1 else ''} in the last {HOURS} hour{'s' if HOURS != 1 else ''}")
+        log(f"Found {count} new rating{'s' if count != 1 else ''} in the last {HOURS} hour{'s' if HOURS != 1 else ''}")
         
         if recent_ratings:
             # Sort ratings by 'rated_at' in ascending order to send the oldest first
@@ -281,7 +289,7 @@ def main():
             embeds = create_discord_embed(recent_ratings)
             send_to_discord(embeds)
     else:
-        print("No ratings found")
+        log("No ratings found")
 
 if __name__ == "__main__":
     main()
