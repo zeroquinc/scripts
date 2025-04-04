@@ -104,7 +104,8 @@ def get_comments_for_item(item_type, item_id, show_id=None, season_num=None, epi
                 if not created_at:
                     continue
                     
-                created_date = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+                # Parse the date and make it timezone-aware (UTC)
+                created_date = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
                 if created_date > one_hour_ago and c.get('user', {}).get('username') == TRAKT_USERNAME:
                     recent_comments.append(c)
             except (ValueError, TypeError) as e:
@@ -239,7 +240,7 @@ def create_discord_embed(ratings):
             for comment in comments[:3]:  # Show up to 3 recent comments
                 comment_text = comment.get('comment', '').strip()
                 if comment_text:
-                    comment_texts.append(f"• {comment_text[:200]}{'...' if len(comment_text) > 200 else ''}")
+                    comment_texts.append(f"{comment_text[:200]}{'...' if len(comment_text) > 200 else ''}")
             
             if comment_texts:
                 fields.append({
