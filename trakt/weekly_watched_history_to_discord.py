@@ -235,7 +235,7 @@ def create_discord_embed(items):
         # Add most watched field
         embed["fields"].append({
             "name": "Most Watched",
-            "value": f"{EMOJI_MOST_WATCHED} {most_watched['title']} • {format_duration(most_watched['total_minutes'])}",
+            "value": f"{EMOJI_MOST_WATCHED} {most_watched['title']}",
             "inline": True
         })
         
