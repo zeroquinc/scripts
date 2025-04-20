@@ -7,7 +7,7 @@ Sends notifications to Discord when new content is added to Plex.
 In Tautulli, add a new notification agent Script.
 Triggers -> Recently Added
 Arguments -> Recently Added -> Scripts Arguments
---media_type "{media_type}" --title "{title}" --summary "{summary}" --poster_url "{poster_url}" --plex_url "{plex_url}" --year "{year}" --season_num00 "{season_num00}" --episode_num00 "{episode_num00}" --episode_count "{episode_count}" --imdb_url "{imdb_url}" --themoviedb_url "{themoviedb_url}" --thetvdb_url "{thetvdb_url}" --trakt_url "{trakt_url}"
+--media_type "{media_type}" --title "{title}" --summary "{summary}" --poster_url "{poster_url}" --plex_url "{plex_url}" --year "{year}" --season_num00 "{season_num00}" --episode_num00 "{episode_num00}" --episode_count "{episode_count}" --imdb_url "{imdb_url}" --themoviedb_url "{themoviedb_url}" --thetvdb_url "{thetvdb_url}" --trakt_url "{trakt_url}" --release_date "{release_date}" --air_date "{air_date}"
 
 """
 
@@ -52,6 +52,20 @@ def create_base_embed(args, notification_type):
             "url": args.poster_url
         }
     }
+
+    # Add date information if available
+    if notification_type == "movie" and hasattr(args, 'release_date') and args.release_date:
+        embed["fields"].append({
+            "name": "Release Date",
+            "value": args.release_date,
+            "inline": False
+        })
+    elif notification_type == "episode" and hasattr(args, 'air_date') and args.air_date:
+        embed["fields"].append({
+            "name": "Air Date",
+            "value": args.air_date,
+            "inline": False
+        })
 
     # Add links if available with uppercase service names
     links = []
@@ -121,6 +135,10 @@ def main():
     parser.add_argument('--season_num00')  # For episodes and seasons
     parser.add_argument('--episode_num00')  # For episodes
     parser.add_argument('--episode_count')  # For seasons
+    
+    # Date arguments
+    parser.add_argument('--release_date')  # For movies
+    parser.add_argument('--air_date')  # For episodes
     
     # Optional link arguments
     parser.add_argument('--imdb_url')
