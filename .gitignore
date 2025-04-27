@@ -169,3 +169,10 @@ cython_debug/
 *.png
 *.json
 *.ini
+
+# Environment files
+.env                # Default .env file
+.env.local          # Local overrides
+.env.*              # All other .env variations
+!.env*.example      # Except example files
+!.env*.sample       # And sample files
