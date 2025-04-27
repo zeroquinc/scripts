@@ -169,6 +169,7 @@ cython_debug/
 *.png
 *.json
 *.ini
+config.py
 
 # Environment files
 .env                # Default .env file
