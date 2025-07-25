@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 # Configuration
 try:
-    from config import (
+    from config.config import (
         TRAKT_CLIENT_ID,
         TRAKT_USERNAME,
         TMDB_API_KEY,
