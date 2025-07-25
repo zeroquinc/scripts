@@ -171,6 +171,12 @@ cython_debug/
 *.ini
 config.py
 
+# Ignore all logs folders
+**/logs/
+
+# Ignore all log files
+*.log
+
 # Environment files
 .env                # Default .env file
 .env.local          # Local overrides
