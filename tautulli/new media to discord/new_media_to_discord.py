@@ -14,10 +14,7 @@ Arguments -> Recently Added -> Scripts Arguments
 import argparse
 import json
 import requests
-
-# Configuration - set these values
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL_HERE"
-AUTHOR_ICON_URL = "https://i.imgur.com/QLxJe4L.png"  # Default Plex icon
+from config.config import DISCORD_WEBHOOK_URL, AUTHOR_ICON_URL
 
 def send_discord_webhook(embed, webhook_url):
     """Send the embed to Discord via webhook."""
