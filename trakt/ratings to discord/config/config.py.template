@@ -1,0 +1,6 @@
+# Configuration (EDIT THIS)
+TRAKT_API_KEY = "" # Trakt Client ID
+TMDB_API_KEY = ""  # TMDB API Key for posters
+TRAKT_USERNAME = "" # Trakt username (not user ID) capital sensitive
+DISCORD_WEBHOOK_URL = "" # Discord Webhook URL
+HOURS = 1  # Number of hours to check for new ratings

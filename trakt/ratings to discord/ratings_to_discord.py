@@ -1,12 +1,7 @@
 import requests
 from datetime import datetime, timedelta, timezone
 
-# Configuration (EDIT THIS)
-TRAKT_API_KEY = "" # Trakt Client ID
-TMDB_API_KEY = ""  # TMDB API Key for posters
-TRAKT_USERNAME = "" # Trakt username (not user ID) capital sensitive
-DISCORD_WEBHOOK_URL = "" # Discord Webhook URL
-HOURS = 1  # Number of hours to check for new ratings
+from config.config import TRAKT_API_KEY, TMDB_API_KEY, TRAKT_USERNAME, DISCORD_WEBHOOK_URL, HOURS
 
 def log(message):
     """Simple logging function with timestamps"""

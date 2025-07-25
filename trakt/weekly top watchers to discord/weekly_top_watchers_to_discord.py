@@ -1,10 +1,7 @@
 import requests
 from datetime import datetime, timedelta
 
-# EDIT SETTINGS #
-TRAKT_CLIENT_ID = "your_trakt_client_id"
-TMDB_API_KEY = "your_tmdb_api_key"
-DISCORD_WEBHOOK_URL = "your_discord_webhook_url"
+from config.config import TRAKT_CLIENT_ID, TMDB_API_KEY, DISCORD_WEBHOOK_URL
 
 # Constants (DO NOT EDIT)
 EMBED_COLORS = {'movie': 0xffa500, 'show': 0x67B7D1}

@@ -3,20 +3,7 @@ from datetime import datetime, timedelta, timezone
 import time
 from collections import defaultdict
 
-# Configuration (EDIT THIS)
-TRAKT_API_KEY = "" # Trakt Client ID
-TRAKT_USERNAME = "" # Trakt username (not user ID) capital sensitive
-TMDB_API_KEY = ""  # TMDB API Key for posters
-DISCORD_WEBHOOK_URL = "" # Discord Webhook URL
-MAX_RETRIES = 3 # Number of retries for failed requests (increase if you get rate limited)
-DELAY_BETWEEN_REQUESTS = 1  # seconds (increase if you get rate limited)
-
-# Emoji Configuration (EDIT THIS IF NEEDED)
-# You can set these to empty strings if you don't want emojis in the embed
-EMOJI_TV_SHOW = "📺"  # For TV shows
-EMOJI_MOVIE = "🎬"    # For movies
-EMOJI_TOTAL_TIME = "⏱️"  # For total watch time
-EMOJI_MOST_WATCHED = "🏆"  # For most watched item
+from config.config import TRAKT_API_KEY, TRAKT_USERNAME, TMDB_API_KEY, DISCORD_WEBHOOK_URL, MAX_RETRIES, DELAY_BETWEEN_REQUESTS, EMOJI_TV_SHOW, EMOJI_MOVIE, EMOJI_TOTAL_TIME, EMOJI_MOST_WATCHED
 
 def log(message):
     """Simple logging function with timestamps"""
