@@ -1,0 +1,10 @@
+API_KEY = ""
+API_SECRET = ""
+SESSION_KEY = ""
+
+# Artists that should not be split
+ARTIST_WHITELIST = [
+    "Simon & Garfunkel",
+    "Earth, Wind & Fire",
+    # Add more as needed
+]
