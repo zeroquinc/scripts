@@ -96,15 +96,44 @@ def request_new_token():
 
 def refresh_token():
     global trakt_token
+    if not trakt_token:
+        print("ERROR: No token to refresh. Please authorize first.")
+        request_new_token()
+        return
+    
     print("Refreshing Trakt token...")
-    response = requests.post("https://trakt.tv/oauth/token", data={
-        "client_id": TRAKT_CONFIG["client_id"],
-        "client_secret": TRAKT_CONFIG["client_secret"],
-        "refresh_token": trakt_token["refresh_token"],
-        "grant_type": "refresh_token"
-    }, headers={"Content-Type": "application/x-www-form-urlencoded"})
-    trakt_token = response.json()
-    save_token()
+    max_retries = 3
+    retry_delay = 2  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.post("https://trakt.tv/oauth/token", data={
+                "client_id": TRAKT_CONFIG["client_id"],
+                "client_secret": TRAKT_CONFIG["client_secret"],
+                "refresh_token": trakt_token.get("refresh_token"),
+                "grant_type": "refresh_token"
+            }, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=10)
+            
+            if response.status_code == 200:
+                token_data = response.json()
+                if token_data and "access_token" in token_data:
+                    trakt_token = token_data
+                    save_token()
+                    print("Token refreshed successfully.")
+                    return
+                else:
+                    print(f"ERROR: Invalid token response (attempt {attempt + 1}/{max_retries}): {token_data}")
+            else:
+                print(f"ERROR: Token refresh failed with status {response.status_code} (attempt {attempt + 1}/{max_retries}): {response.text}")
+        except requests.exceptions.RequestException as e:
+            print(f"ERROR: Network error during token refresh (attempt {attempt + 1}/{max_retries}): {e}")
+        
+        # Retry after delay (except on last attempt)
+        if attempt < max_retries - 1:
+            print(f"Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+    
+    print("ERROR: Failed to refresh token after all retries. The script may not function correctly.")
 
 def get_headers(auth=True):
     headers = {
@@ -112,7 +141,7 @@ def get_headers(auth=True):
         "trakt-api-version": "2",
         "trakt-api-key": TRAKT_CONFIG["client_id"]
     }
-    if auth:
+    if auth and trakt_token and "access_token" in trakt_token:
         headers["Authorization"] = f"Bearer {trakt_token['access_token']}"
     return headers
 
@@ -121,7 +150,11 @@ def trakt_request(endpoint, params=None):
     return response.json() if response.status_code == 200 else None
 
 def get_show(tmdb_id):
-    return trakt_request(f"search/tmdb/{tmdb_id}?type=show")[0]["show"]
+    result = trakt_request(f"search/tmdb/{tmdb_id}?type=show")
+    if result and len(result) > 0 and "show" in result[0]:
+        return result[0]["show"]
+    print(f"ERROR: Could not find show with TMDB ID {tmdb_id}")
+    return None
 
 def get_episode(show, season_num, episode_num):
     return trakt_request(f"shows/{show['ids']['slug']}/seasons/{season_num}/episodes/{episode_num}")
@@ -173,7 +206,13 @@ def mark_as_watched(media_type, imdb_id=None, tmdb_id=None, season_num=None, epi
 
         elif media_type == "episode" and tmdb_id:
             show = get_show(tmdb_id)
+            if not show:
+                print("ERROR: Could not find show details.")
+                return
             episode = get_episode(show, season_num, episode_num)
+            if not episode:
+                print("ERROR: Could not find episode details.")
+                return
             title = f"{show['title']} - S{season_num:02}E{episode_num:02}"
             trakt_data["episodes"].append({"watched_at": watched_at, "ids": episode["ids"]})
             trakt_url = f"https://trakt.tv/shows/{show['ids']['slug']}/seasons/{season_num}/episodes/{episode_num}"
