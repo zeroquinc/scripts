@@ -1,4 +1,5 @@
 # EDIT SETTINGS #
 TRAKT_CLIENT_ID = "your_trakt_client_id"
+TRAKT_CLIENT_SECRET = "your_trakt_client_secret"
 TMDB_API_KEY = "your_tmdb_api_key"
 DISCORD_WEBHOOK_URL = "your_discord_webhook_url"
