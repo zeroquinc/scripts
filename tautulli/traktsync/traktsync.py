@@ -102,8 +102,8 @@ def refresh_token():
         return
     
     print("Refreshing Trakt token...")
-    max_retries = 3
-    retry_delay = 2  # seconds
+    max_retries = 5  # Increased from 3 to 5 for DNS issues
+    base_delay = 3  # Increased base delay
     
     for attempt in range(max_retries):
         try:
@@ -112,7 +112,7 @@ def refresh_token():
                 "client_secret": TRAKT_CONFIG["client_secret"],
                 "refresh_token": trakt_token.get("refresh_token"),
                 "grant_type": "refresh_token"
-            }, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=10)
+            }, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=15)
             
             if response.status_code == 200:
                 token_data = response.json()
@@ -126,10 +126,15 @@ def refresh_token():
             else:
                 print(f"ERROR: Token refresh failed with status {response.status_code} (attempt {attempt + 1}/{max_retries}): {response.text}")
         except requests.exceptions.RequestException as e:
-            print(f"ERROR: Network error during token refresh (attempt {attempt + 1}/{max_retries}): {e}")
+            error_str = str(e)
+            if "Failed to resolve" in error_str or "NameResolutionError" in error_str:
+                print(f"ERROR: DNS resolution failed (attempt {attempt + 1}/{max_retries}): Network may be temporarily unavailable")
+            else:
+                print(f"ERROR: Network error during token refresh (attempt {attempt + 1}/{max_retries}): {e}")
         
-        # Retry after delay (except on last attempt)
+        # Retry with exponential backoff (except on last attempt)
         if attempt < max_retries - 1:
+            retry_delay = base_delay * (2 ** attempt)  # Exponential backoff: 3s, 6s, 12s, 24s
             print(f"Retrying in {retry_delay} seconds...")
             time.sleep(retry_delay)
     
@@ -145,9 +150,44 @@ def get_headers(auth=True):
         headers["Authorization"] = f"Bearer {trakt_token['access_token']}"
     return headers
 
-def trakt_request(endpoint, params=None):
-    response = requests.get(f"https://api.trakt.tv/{endpoint}", headers=get_headers(), params=params)
-    return response.json() if response.status_code == 200 else None
+def trakt_request(endpoint, params=None, max_retries=5):
+    """Make a request to Trakt API with retry logic for network errors."""
+    base_delay = 3
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(
+                f"https://api.trakt.tv/{endpoint}", 
+                headers=get_headers(), 
+                params=params,
+                timeout=15
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"WARNING: Trakt API returned status {response.status_code} for {endpoint}")
+                if response.status_code >= 500:  # Server errors, retry
+                    if attempt < max_retries - 1:
+                        retry_delay = base_delay * (2 ** attempt)
+                        print(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                        continue
+                return None
+        except requests.exceptions.RequestException as e:
+            error_str = str(e)
+            if "Failed to resolve" in error_str or "NameResolutionError" in error_str:
+                print(f"ERROR: DNS resolution failed for {endpoint} (attempt {attempt + 1}/{max_retries})")
+            else:
+                print(f"ERROR: Network error for {endpoint} (attempt {attempt + 1}/{max_retries}): {e}")
+            
+            if attempt < max_retries - 1:
+                retry_delay = base_delay * (2 ** attempt)
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                return None
+    
+    return None
 
 def get_show(tmdb_id):
     result = trakt_request(f"search/tmdb/{tmdb_id}?type=show")
@@ -217,13 +257,47 @@ def mark_as_watched(media_type, imdb_id=None, tmdb_id=None, season_num=None, epi
             trakt_data["episodes"].append({"watched_at": watched_at, "ids": episode["ids"]})
             trakt_url = f"https://trakt.tv/shows/{show['ids']['slug']}/seasons/{season_num}/episodes/{episode_num}"
 
-        response = requests.post("https://api.trakt.tv/sync/history", json=trakt_data, headers=get_headers())
+        # Post with retry logic
+        max_retries = 5
+        base_delay = 3
+        success = False
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    "https://api.trakt.tv/sync/history", 
+                    json=trakt_data, 
+                    headers=get_headers(),
+                    timeout=15
+                )
 
-        if response.status_code == 201:
-            print(f"Marked {title} as watched on Trakt.")
-            send_discord_webhook(title, trakt_url, poster_url)
-        else:
-            print(f"ERROR: Failed to mark as watched. Status: {response.status_code}, Response: {response.text}")
+                if response.status_code == 201:
+                    print(f"Marked {title} as watched on Trakt.")
+                    send_discord_webhook(title, trakt_url, poster_url)
+                    success = True
+                    break
+                else:
+                    print(f"ERROR: Failed to mark as watched. Status: {response.status_code}, Response: {response.text}")
+                    if response.status_code >= 500 and attempt < max_retries - 1:
+                        retry_delay = base_delay * (2 ** attempt)
+                        print(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        break
+            except requests.exceptions.RequestException as e:
+                error_str = str(e)
+                if "Failed to resolve" in error_str or "NameResolutionError" in error_str:
+                    print(f"ERROR: DNS resolution failed (attempt {attempt + 1}/{max_retries})")
+                else:
+                    print(f"ERROR: Network error (attempt {attempt + 1}/{max_retries}): {e}")
+                
+                if attempt < max_retries - 1:
+                    retry_delay = base_delay * (2 ** attempt)
+                    print(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+        
+        if not success:
+            print("ERROR: Failed to mark as watched after all retries.")
 
     except Exception as e:
         print(f"ERROR: {e}")
