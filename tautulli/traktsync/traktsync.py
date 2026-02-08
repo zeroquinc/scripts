@@ -32,6 +32,8 @@ os.makedirs(CONFIG_DIR, exist_ok=True)
 # Constants
 TOKEN_FILE = os.path.join(CONFIG_DIR, "trakt_token.json")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.ini")
+DEDUPE_FILE = os.path.join(CONFIG_DIR, "trakt_dedupe.json")
+DEDUPE_WINDOW_SECONDS = 60 * 60
 TRAKT_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
 trakt_token = None
 
@@ -226,8 +228,47 @@ def send_discord_webhook(title, url=None, poster_url=None):
     else:
         print(f"ERROR: Discord notification failed. Status: {response.status_code}, Response: {response.text}")
 
+def load_dedupe_cache():
+    try:
+        with open(DEDUPE_FILE, "r") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    return {}
+
+def save_dedupe_cache(cache):
+    with open(DEDUPE_FILE, "w") as f:
+        json.dump(cache, f)
+
+def is_recent_duplicate(cache_key, now_ts):
+    cache = load_dedupe_cache()
+    last_ts = cache.get(cache_key)
+    if last_ts and (now_ts - last_ts) < DEDUPE_WINDOW_SECONDS:
+        return True
+
+    # Prune stale entries and update cache
+    cutoff = now_ts - (DEDUPE_WINDOW_SECONDS * 2)
+    cache = {k: v for k, v in cache.items() if v >= cutoff}
+    cache[cache_key] = now_ts
+    save_dedupe_cache(cache)
+    return False
+
 def mark_as_watched(media_type, imdb_id=None, tmdb_id=None, season_num=None, episode_num=None, poster_url=None):
     try:
+        now_ts = time.time()
+        if media_type == "movie" and imdb_id:
+            cache_key = f"movie:{imdb_id}"
+        elif media_type == "episode" and tmdb_id and season_num is not None and episode_num is not None:
+            cache_key = f"episode:{tmdb_id}:{season_num}:{episode_num}"
+        else:
+            cache_key = None
+
+        if cache_key and is_recent_duplicate(cache_key, now_ts):
+            print("Skipping duplicate play within dedupe window.")
+            return
+
         load_or_refresh_token()
         watched_at = get_current_timestamp()
         trakt_data = {"movies": [], "episodes": []}
